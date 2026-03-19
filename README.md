@@ -1,5 +1,5 @@
 # Radar Civil
-Radar Cívil se trata de uma plataforma feita com o intuito de aumentar a consiência do ciddadão sobre aqueles que nos regem.
+Radar Cívil se trata de uma plataforma feita com o intuito de aumentar a consiência do cidadão sobre aqueles que nos regem.
 Se trata de um feed de projetos propostos pela câmara dos deputados adiquiridos através da API "dados abertos" disponibilizada pela própria câmara no link: https://dadosabertos.camara.leg.br/swagger/api.html?tab=api
 
 # Arquitetura e técnologias:
