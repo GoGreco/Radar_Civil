@@ -2,25 +2,52 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class CamaraService {
-  final String baseUrl = "https://dadosabertos.camara.leg.br/api/v2";
+  static const String baseUrl =
+      "https://dadosabertos.camara.leg.br/api/v2";
 
-  Future<List> getDeputados() async {
-    final response = await http.get(Uri.parse("$baseUrl/deputados"));
+  Future<List<dynamic>> getProposicoes({
+    String? tipo,
+    String? ano,
+  }) async {
+    String url = "$baseUrl/proposicoes?ordem=DESC&ordenarPor=id";
+
+    if (tipo != null && tipo.isNotEmpty) {
+      url += "&siglaTipo=$tipo";
+    }
+
+    if (ano != null && ano.isNotEmpty) {
+      url += "&ano=$ano";
+    }
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        "accept": "application/json",
+      },
+    );
 
     if (response.statusCode == 200) {
-      return json.decode(response.body)['dados'];
-    } else {
-      throw Exception('Erro ao carregar deputados');
+      return jsonDecode(response.body)['dados'];
     }
+
+    throw Exception("Erro ao carregar proposições");
   }
 
-  Future<List> getProposicoes() async {
-    final response = await http.get(Uri.parse("$baseUrl/proposicoes"));
+  Future<List<String>> getTiposProposicao() async {
+    return [
+      'PEC',
+      'PL',
+      'PLP',
+      'MPV',
+    ];
+  }
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body)['dados'];
-    } else {
-      throw Exception('Erro ao carregar proposições');
-    }
+  Future<List<String>> getAnos() async {
+    final anoAtual = DateTime.now().year;
+
+    return List.generate(
+      10,
+      (index) => (anoAtual - index).toString(),
+    );
   }
 }
