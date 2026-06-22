@@ -1,4 +1,4 @@
-package com.example.radar_civil
+package com.radar_civil.application
 
 import io.flutter.embedding.android.FlutterActivity
 

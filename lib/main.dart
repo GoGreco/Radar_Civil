@@ -32,7 +32,7 @@ class RadarCivilApp extends StatelessWidget {
           elevation: 0,
         ),
 
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(16),
