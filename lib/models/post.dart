@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-/// Representa um dos autores principais de uma proposição.
 class Autor {
   final String nome;
   final String siglaPartido;
@@ -14,7 +13,6 @@ class Autor {
   });
 }
 
-/// Agrupa os 3 primeiros autores (por ordemAssinatura) + o total de autores.
 class AutoresInfo {
   final List<Autor> principais;
   final int total;
@@ -32,6 +30,7 @@ class Post {
   final String ano;
   final String? link;
   final String? authorImageUrl;
+  final String? urlInteiroTeor;
 
   Post({
     required this.id,
@@ -43,6 +42,7 @@ class Post {
     required this.ano,
     this.link,
     this.authorImageUrl,
+    this.urlInteiroTeor,
   });
 
   factory Post.fromApi(Map<String, dynamic> json) {
@@ -63,11 +63,22 @@ class Post {
       ano: ano,
       link: json['uri'],
       authorImageUrl: json['urlFotoAutor'],
+      urlInteiroTeor: json['urlInteiroTeor'],
     );
   }
 
-  /// Busca os 3 primeiros autores (por ordemAssinatura) de uma proposição,
-  /// junto com o nome, partido e foto de cada um, além do total de autores.
+  static Future<String?> buscarUrlInteiroTeor(int proposicaoId) async {
+    try {
+      final resp = await http.get(Uri.parse(
+        'https://dadosabertos.camara.leg.br/api/v2/proposicoes/$proposicaoId',
+      ));
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body)['dados']['urlInteiroTeor'] as String?;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future<AutoresInfo> buscarAutoresPrincipais(int proposicaoId) async {
     final autoresResp = await http.get(Uri.parse(
       'https://dadosabertos.camara.leg.br/api/v2/proposicoes/$proposicaoId/autores',

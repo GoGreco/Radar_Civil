@@ -7,11 +7,14 @@ class DetailScreen extends StatelessWidget {
 
   const DetailScreen(this.post, {super.key});
 
-  /// Abre a página original da proposição no navegador padrão do sistema,
-  /// sem depender de pacotes externos.
+  /// Busca o urlInteiroTeor via API e abre no navegador padrão do sistema.
   Future<void> _abrirOriginal() async {
-    final url =
-        'https://www.camara.leg.br/proposicoesWeb/fichadetramitacao?idProposicao=${post.id}';
+    final url = await Post.buscarUrlInteiroTeor(post.id);
+
+    if (url == null || url.isEmpty) {
+      debugPrint('urlInteiroTeor não disponível para proposição ${post.id}');
+      return;
+    }
 
     if (Platform.isLinux) {
       await Process.run('xdg-open', [url]);
@@ -19,9 +22,7 @@ class DetailScreen extends StatelessWidget {
       await Process.run('open', [url]);
     } else if (Platform.isWindows) {
       await Process.run('explorer', [url]);
-    } else if (Platform.isAndroid || Platform.isIOS) {
-      // Em mobile, dart:io não tem Process — fallback silencioso.
-      // Adicione url_launcher se precisar suportar mobile.
+    } else {
       debugPrint('url_launcher necessário em mobile: $url');
     }
   }
@@ -175,9 +176,9 @@ class DetailScreen extends StatelessWidget {
   }
 }
 
-// ── Widgets auxiliares ────────────────────────────────────────────────────────
+  // ── Widgets auxiliares ────────────────────────────────────────────────────────
 
-/// Coluna com foto + "Nome/Partido" para um único autor.
+  /// Coluna com foto + "Nome/Partido" para um único autor.
 class _AutorColuna extends StatelessWidget {
   final Autor autor;
 
@@ -226,7 +227,6 @@ class _AutorColuna extends StatelessWidget {
   }
 }
 
-/// Fallback exibido quando não há autores retornados pela API.
 class _AutorFallback extends StatelessWidget {
   const _AutorFallback();
 
