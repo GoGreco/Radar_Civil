@@ -5,8 +5,11 @@ Design inicial presente no link: https://www.figma.com/design/gaD3C9uVO5pUTnsKC0
 
 # Integrantes
 |       Integrante        | Atividades Desenvolvidas  |
+
 | Satie Kumeda Chirico    | - Design                  |
+
 | Miguel Sant'Ana Menezes | - Desenvolvimento         |
+
 | Pedro L. R. Greco       |- Revisão/Documentação     |
   
 # Arquitetura e técnologias:
