@@ -4,9 +4,10 @@ Se trata de um feed de projetos propostos pela câmara dos deputados adiquiridos
 Design inicial presente no link: https://www.figma.com/design/gaD3C9uVO5pUTnsKC0u16Y/Projeto-Consci%C3%AAncia
 
 # Integrantes
-- Satie Kumeda Chirico - Design
-- Miguel Sant'Ana Menezes - Desenvolvimento
-- Pedro L. R. Greco - Revisão/Desenvolvimento
+|       Integrante        | Atividades Desenvolvidas  |
+| Satie Kumeda Chirico    | - Design                  |
+| Miguel Sant'Ana Menezes | - Desenvolvimento         |
+| Pedro L. R. Greco       |- Revisão/Documentação     |
   
 # Arquitetura e técnologias:
 O projeto foi desenvolvido em Flutter e segue arquitetura definida em camadas, contendo uma camada de servidor e uma camada de aplicação conectadas pela API dados abertos
