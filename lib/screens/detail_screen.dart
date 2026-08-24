@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/post.dart';
 
 class DetailScreen extends StatelessWidget {
@@ -23,7 +24,11 @@ class DetailScreen extends StatelessWidget {
     } else if (Platform.isWindows) {
       await Process.run('explorer', [url]);
     } else {
-      debugPrint('url_launcher necessário em mobile: $url');
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      } else {
+        debugPrint('Não foi possível abrir a URL: $url');
+      }
     }
   }
 
