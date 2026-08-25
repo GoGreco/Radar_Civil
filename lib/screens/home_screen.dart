@@ -19,6 +19,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? filtroTipo;
   String? filtroAno;
+  String? filtroDeputado;
+  String? filtroPartido;
+  String? filtroTema;
+  String? filtroTemaNome;
 
   @override
   void initState() {
@@ -30,6 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final dados = await _camaraService.getProposicoes(
       tipo: filtroTipo,
       ano: filtroAno,
+      deputado: filtroDeputado,
+      partido: filtroPartido,
+      codTema: filtroTema,
     );
 
     return dados.map<Post>((item) {
@@ -49,6 +56,16 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         filtroTipo = resultado['tipo'];
         filtroAno = resultado['ano'];
+
+        final deputado = (resultado['deputado'] as String?) ?? '';
+        filtroDeputado = deputado.isEmpty ? null : deputado;
+
+        final partido = (resultado['partido'] as String?) ?? '';
+        filtroPartido = partido.isEmpty ? null : partido;
+
+        filtroTema = resultado['tema'];
+        filtroTemaNome = resultado['temaNome'];
+
         _postsFuture = _loadPosts();
       });
     }
@@ -79,7 +96,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       body: Column(
         children: [
-          if (filtroTipo != null || filtroAno != null)
+          if (filtroTipo != null ||
+              filtroAno != null ||
+              filtroDeputado != null ||
+              filtroPartido != null ||
+              filtroTema != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -95,6 +116,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (filtroAno != null)
                     Chip(
                       label: Text("Ano: $filtroAno"),
+                    ),
+
+                  if (filtroDeputado != null)
+                    Chip(
+                      label: Text("Deputado: $filtroDeputado"),
+                    ),
+
+                  if (filtroPartido != null)
+                    Chip(
+                      label: Text("Partido: $filtroPartido"),
+                    ),
+
+                  if (filtroTema != null)
+                    Chip(
+                      label: Text("Tema: ${filtroTemaNome ?? filtroTema}"),
                     ),
                 ],
               ),

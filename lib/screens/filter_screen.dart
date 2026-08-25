@@ -11,11 +11,16 @@ class FilterScreen extends StatefulWidget {
 class _FilterScreenState extends State<FilterScreen> {
   final CamaraService _service = CamaraService();
 
+  final TextEditingController _deputadoController = TextEditingController();
+  final TextEditingController _partidoController = TextEditingController();
+
   String? selectedTipo;
   String? selectedAno;
+  String? selectedTema;
 
   List<String> tipos = [];
   List<String> anos = [];
+  List<Map<String, String>> temas = [];
 
   @override
   void initState() {
@@ -23,9 +28,17 @@ class _FilterScreenState extends State<FilterScreen> {
     carregarDados();
   }
 
+  @override
+  void dispose() {
+    _deputadoController.dispose();
+    _partidoController.dispose();
+    super.dispose();
+  }
+
   Future<void> carregarDados() async {
     tipos = await _service.getTiposProposicao();
     anos = await _service.getAnos();
+    temas = await _service.getTemas();
 
     setState(() {});
   }
@@ -96,6 +109,81 @@ class _FilterScreenState extends State<FilterScreen> {
               },
             ),
 
+            const SizedBox(height: 30),
+
+            const Text(
+              "DEPUTADO",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: _deputadoController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: "Digite o nome do deputado",
+                prefixIcon: Icon(Icons.person),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            const Text(
+              "PARTIDO",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: _partidoController,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: "Digite a sigla do partido (ex: PT, PL, PSOL)",
+                prefixIcon: Icon(Icons.groups),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            const Text(
+              "TEMA",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            DropdownButtonFormField<String>(
+              value: selectedTema,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              hint: const Text("Selecione um tema"),
+              items: temas.map((tema) {
+                return DropdownMenuItem(
+                  value: tema['cod'],
+                  child: Text(tema['nome'] ?? ''),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedTema = value;
+                });
+              },
+            ),
+
             const SizedBox(height: 40),
 
             SizedBox(
@@ -109,11 +197,20 @@ class _FilterScreenState extends State<FilterScreen> {
                   ),
                 ),
                 onPressed: () {
+                  final temaSelecionado = temas.firstWhere(
+                    (tema) => tema['cod'] == selectedTema,
+                    orElse: () => const {},
+                  );
+
                   Navigator.pop(
                     context,
                     {
                       'tipo': selectedTipo,
                       'ano': selectedAno,
+                      'deputado': _deputadoController.text.trim(),
+                      'partido': _partidoController.text.trim(),
+                      'tema': selectedTema,
+                      'temaNome': temaSelecionado['nome'],
                     },
                   );
                 },
