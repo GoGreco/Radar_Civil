@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/post.dart';
+import 'package:http/http.dart' as http;
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class DetailScreen extends StatelessWidget {
   final Post post;
@@ -10,25 +12,49 @@ class DetailScreen extends StatelessWidget {
 
   /// Busca o urlInteiroTeor via API e abre no navegador padrão do sistema.
   Future<void> _abrirOriginal() async {
-    final url = await Post.buscarUrlInteiroTeor(post.id);
+    final pdfUrl = await Post.buscarUrlInteiroTeor(post.id);
 
-    if (url == null || url.isEmpty) {
+    if (pdfUrl == null || pdfUrl.isEmpty) {
       debugPrint('urlInteiroTeor não disponível para proposição ${post.id}');
       return;
     }
 
     if (Platform.isLinux) {
-      await Process.run('xdg-open', [url]);
+      await Process.run('xdg-open', [pdfUrl]);
     } else if (Platform.isMacOS) {
-      await Process.run('open', [url]);
+      await Process.run('open', [pdfUrl]);
     } else if (Platform.isWindows) {
-      await Process.run('explorer', [url]);
+      await Process.run('explorer', [pdfUrl]);
     } else {
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
+      if (await canLaunchUrl(Uri.parse(pdfUrl))) {
+        await launchUrl(Uri.parse(pdfUrl));
       } else {
-        debugPrint('Não foi possível abrir a URL: $url');
+        debugPrint('Não foi possível abrir a URL: $pdfUrl');
       }
+    }
+  }
+
+  /// Busca a URL do PDF e extrai o texto de dentro dele.
+  Future<String> _buscarTextoPdf() async {
+    final pdfUrl = await Post.buscarUrlInteiroTeor(post.id);
+
+    if (pdfUrl == null || pdfUrl.isEmpty) {
+      return 'Texto original não disponível.';
+    }
+
+    final response = await http.get(Uri.parse(pdfUrl));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to download PDF: ${response.statusCode}');
+    }
+
+    final bytes = response.bodyBytes;
+    final PdfDocument document = PdfDocument(inputBytes: bytes);
+
+    try {
+      final text = PdfTextExtractor(document).extractText();
+      return text;
+    } finally {
+      document.dispose();
     }
   }
 
@@ -51,7 +77,6 @@ class DetailScreen extends StatelessWidget {
               child: FutureBuilder<AutoresInfo>(
                 future: Post.buscarAutoresPrincipais(post.id),
                 builder: (context, snapshot) {
-                  // Enquanto carrega
                   if (!snapshot.hasData) {
                     return const Center(
                       child: Padding(
@@ -64,14 +89,12 @@ class DetailScreen extends StatelessWidget {
                   final info = snapshot.data!;
                   final autores = info.principais;
 
-                  // Sem autores encontrados
                   if (autores.isEmpty) {
                     return const _AutorFallback();
                   }
 
                   return Column(
                     children: [
-                      // Avatares + nomes lado a lado
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +103,6 @@ class DetailScreen extends StatelessWidget {
                             .toList(),
                       ),
                       const SizedBox(height: 12),
-                      // Total de autores
                       Text(
                         '${info.total} autores totais',
                         style: TextStyle(
@@ -100,7 +122,6 @@ class DetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Título
                   Text(
                     post.title,
                     style: const TextStyle(
@@ -111,7 +132,6 @@ class DetailScreen extends StatelessWidget {
 
                   const SizedBox(height: 15),
 
-                  // Chips tipo / ano
                   Row(
                     children: [
                       Chip(label: Text(post.tipo)),
@@ -122,15 +142,36 @@ class DetailScreen extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // Ementa
-                  Text(
-                    post.description,
-                    style: const TextStyle(fontSize: 16, height: 1.6),
+                  // Texto extraído do PDF
+                  FutureBuilder<String>(
+                    future: _buscarTextoPdf(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return Text(
+                          'Não foi possível carregar o texto original.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.red.shade700,
+                          ),
+                        );
+                      }
+
+                      return Text(
+                        snapshot.data ?? '',
+                        style: const TextStyle(fontSize: 16, height: 1.6),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 25),
 
-                  // Data
                   Row(
                     children: [
                       const Icon(Icons.calendar_today, size: 18),
@@ -145,7 +186,6 @@ class DetailScreen extends StatelessWidget {
 
                   const SizedBox(height: 35),
 
-                  // Botão Ver Original
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -162,7 +202,6 @@ class DetailScreen extends StatelessWidget {
 
                   const SizedBox(height: 15),
 
-                  // Botão Voltar
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -181,9 +220,8 @@ class DetailScreen extends StatelessWidget {
   }
 }
 
-  // ── Widgets auxiliares ────────────────────────────────────────────────────────
+// ── Widgets auxiliares ────────────────────────────────────────────────────
 
-  /// Coluna com foto + "Nome/Partido" para um único autor.
 class _AutorColuna extends StatelessWidget {
   final Autor autor;
 
@@ -194,7 +232,6 @@ class _AutorColuna extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          // Foto
           CircleAvatar(
             radius: 38,
             backgroundColor: Colors.white.withOpacity(0.25),
@@ -205,7 +242,6 @@ class _AutorColuna extends StatelessWidget {
                 : null,
           ),
           const SizedBox(height: 8),
-          // Nome
           Text(
             autor.nome,
             textAlign: TextAlign.center,
@@ -217,7 +253,6 @@ class _AutorColuna extends StatelessWidget {
               fontSize: 13,
             ),
           ),
-          // Partido (só exibe se não estiver vazio)
           if (autor.siglaPartido.isNotEmpty)
             Text(
               autor.siglaPartido,
