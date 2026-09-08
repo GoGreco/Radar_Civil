@@ -11,6 +11,7 @@ class FilterScreen extends StatefulWidget {
 class _FilterScreenState extends State<FilterScreen> {
   final CamaraService _service = CamaraService();
 
+  final TextEditingController _numeroController = TextEditingController();
   final TextEditingController _deputadoController = TextEditingController();
   final TextEditingController _partidoController = TextEditingController();
 
@@ -30,6 +31,7 @@ class _FilterScreenState extends State<FilterScreen> {
 
   @override
   void dispose() {
+    _numeroController.dispose();
     _deputadoController.dispose();
     _partidoController.dispose();
     super.dispose();
@@ -107,6 +109,28 @@ class _FilterScreenState extends State<FilterScreen> {
                   selectedAno = value;
                 });
               },
+            ),
+
+            const SizedBox(height: 30),
+
+            const Text(
+              "NÚMERO DA PROPOSIÇÃO",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: _numeroController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: "Digite o número (ex: 1234)",
+                prefixIcon: Icon(Icons.tag),
+              ),
             ),
 
             const SizedBox(height: 30),
@@ -207,6 +231,7 @@ class _FilterScreenState extends State<FilterScreen> {
                     {
                       'tipo': selectedTipo,
                       'ano': selectedAno,
+                      'numero': _numeroController.text.trim(),
                       'deputado': _deputadoController.text.trim(),
                       'partido': _partidoController.text.trim(),
                       'tema': selectedTema,

@@ -58,13 +58,25 @@ class AppDrawer extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.filter_alt),
               title: const Text('FILTROS'),
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                Navigator.pop(context);
+
+                final resultado = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => const FilterScreen(),
                   ),
                 );
+
+                if (resultado != null && context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => HomeScreen(filtrosIniciais: resultado),
+                    ),
+                    (route) => false,
+                  );
+                }
               },
             ),
 

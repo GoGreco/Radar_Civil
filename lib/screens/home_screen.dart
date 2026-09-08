@@ -6,7 +6,9 @@ import '../widgets/app_drawer.dart';
 import 'filter_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.filtrosIniciais});
+
+  final Map<dynamic, dynamic>? filtrosIniciais;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -19,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? filtroTipo;
   String? filtroAno;
+  String? filtroNumero;
   String? filtroDeputado;
   String? filtroPartido;
   String? filtroTema;
@@ -27,6 +30,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    if (widget.filtrosIniciais != null) {
+      _aplicarFiltros(widget.filtrosIniciais!);
+    }
+
     _postsFuture = _loadPosts();
   }
 
@@ -34,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final dados = await _camaraService.getProposicoes(
       tipo: filtroTipo,
       ano: filtroAno,
+      numero: filtroNumero,
       deputado: filtroDeputado,
       partido: filtroPartido,
       codTema: filtroTema,
@@ -42,6 +51,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return dados.map<Post>((item) {
       return Post.fromApi(item);
     }).toList();
+  }
+
+  void _aplicarFiltros(Map<dynamic, dynamic> resultado) {
+    filtroTipo = resultado['tipo'];
+    filtroAno = resultado['ano'];
+
+    final numero = (resultado['numero'] as String?) ?? '';
+    filtroNumero = numero.isEmpty ? null : numero;
+
+    final deputado = (resultado['deputado'] as String?) ?? '';
+    filtroDeputado = deputado.isEmpty ? null : deputado;
+
+    final partido = (resultado['partido'] as String?) ?? '';
+    filtroPartido = partido.isEmpty ? null : partido;
+
+    filtroTema = resultado['tema'];
+    filtroTemaNome = resultado['temaNome'];
   }
 
   Future<void> abrirFiltros() async {
@@ -54,18 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (resultado != null) {
       setState(() {
-        filtroTipo = resultado['tipo'];
-        filtroAno = resultado['ano'];
-
-        final deputado = (resultado['deputado'] as String?) ?? '';
-        filtroDeputado = deputado.isEmpty ? null : deputado;
-
-        final partido = (resultado['partido'] as String?) ?? '';
-        filtroPartido = partido.isEmpty ? null : partido;
-
-        filtroTema = resultado['tema'];
-        filtroTemaNome = resultado['temaNome'];
-
+        _aplicarFiltros(resultado);
         _postsFuture = _loadPosts();
       });
     }
@@ -98,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           if (filtroTipo != null ||
               filtroAno != null ||
+              filtroNumero != null ||
               filtroDeputado != null ||
               filtroPartido != null ||
               filtroTema != null)
@@ -116,6 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (filtroAno != null)
                     Chip(
                       label: Text("Ano: $filtroAno"),
+                    ),
+
+                  if (filtroNumero != null)
+                    Chip(
+                      label: Text("Número: $filtroNumero"),
                     ),
 
                   if (filtroDeputado != null)

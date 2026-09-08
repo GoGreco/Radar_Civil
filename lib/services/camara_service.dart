@@ -8,6 +8,7 @@ class CamaraService {
   Future<List<dynamic>> getProposicoes({
     String? tipo,
     String? ano,
+    String? numero,
     String? deputado,
     String? partido,
     String? codTema,
@@ -20,6 +21,10 @@ class CamaraService {
 
     if (ano != null && ano.isNotEmpty) {
       url += "&ano=$ano";
+    }
+
+    if (numero != null && numero.isNotEmpty) {
+      url += "&numero=$numero";
     }
 
     if (deputado != null && deputado.isNotEmpty) {
