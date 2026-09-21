@@ -38,9 +38,19 @@ class _FilterScreenState extends State<FilterScreen> {
   }
 
   Future<void> carregarDados() async {
-    tipos = await _service.getTiposProposicao();
-    anos = await _service.getAnos();
-    temas = await _service.getTemas();
+    final resultados = await Future.wait([
+      _service.getTiposProposicao(),
+      _service.getAnos(),
+      _service.getTemas(),
+    ]);
+
+    if (!mounted) {
+      return;
+    }
+
+    tipos = resultados[0] as List<String>;
+    anos = resultados[1] as List<String>;
+    temas = resultados[2] as List<Map<String, String>>;
 
     setState(() {});
   }

@@ -21,6 +21,9 @@ class AutoresInfo {
 }
 
 class Post {
+  static final Map<int, Future<AutoresInfo>> _autoresCache = {};
+  static final Map<int, Future<String?>> _inteiroTeorCache = {};
+
   final int id;
   final String author;
   final String title;
@@ -68,10 +71,21 @@ class Post {
   }
 
   static Future<String?> buscarUrlInteiroTeor(int proposicaoId) async {
+    final cached = _inteiroTeorCache[proposicaoId];
+    if (cached != null) {
+      return cached;
+    }
+
+    final request = _buscarUrlInteiroTeor(proposicaoId);
+    _inteiroTeorCache[proposicaoId] = request;
+    return request;
+  }
+
+  static Future<String?> _buscarUrlInteiroTeor(int proposicaoId) async {
     try {
       final resp = await http.get(Uri.parse(
         'https://dadosabertos.camara.leg.br/api/v2/proposicoes/$proposicaoId',
-      ));
+      )).timeout(const Duration(seconds: 15));
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body)['dados']['urlInteiroTeor'] as String?;
       }
@@ -80,9 +94,20 @@ class Post {
   }
 
   static Future<AutoresInfo> buscarAutoresPrincipais(int proposicaoId) async {
+    final cached = _autoresCache[proposicaoId];
+    if (cached != null) {
+      return cached;
+    }
+
+    final request = _buscarAutoresPrincipais(proposicaoId);
+    _autoresCache[proposicaoId] = request;
+    return request;
+  }
+
+  static Future<AutoresInfo> _buscarAutoresPrincipais(int proposicaoId) async {
     final autoresResp = await http.get(Uri.parse(
       'https://dadosabertos.camara.leg.br/api/v2/proposicoes/$proposicaoId/autores',
-    ));
+    )).timeout(const Duration(seconds: 15));
 
     if (autoresResp.statusCode != 200) {
       return AutoresInfo(principais: [], total: 0);
@@ -104,7 +129,7 @@ class Post {
       try {
         final depResp = await http.get(Uri.parse(
           'https://dadosabertos.camara.leg.br/api/v2/deputados/$deputadoId',
-        ));
+        )).timeout(const Duration(seconds: 15));
 
         if (depResp.statusCode == 200) {
           final status = jsonDecode(depResp.body)['dados']['ultimoStatus'];
