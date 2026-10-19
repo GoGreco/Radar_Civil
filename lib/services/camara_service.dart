@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'local_cache.dart';
-
 class CamaraService {
+
   static const String baseUrl =
       "https://dadosabertos.camara.leg.br/api/v2";
 
