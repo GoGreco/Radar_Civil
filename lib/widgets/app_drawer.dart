@@ -3,72 +3,65 @@ import '../screens/about_screen.dart';
 import '../screens/filter_screen.dart';
 import '../screens/home_screen.dart';
 
+enum AppDrawerSection { home, filtros, sobreNos, patreon }
+
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  final AppDrawerSection? current;
+  final Map<dynamic, dynamic>? filtrosAtuais;
+  final ValueChanged<Map<String, dynamic>>? onFiltrosAplicados;
+
+  const AppDrawer({
+    super.key,
+    this.current,
+    this.filtrosAtuais,
+    this.onFiltrosAplicados,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 30),
-              color: const Color(0xFF4F8F63),
-              child: const Column(
-                children: [
-                  CircleAvatar(
-                    radius: 35,
-                    backgroundColor: Colors.white,
-                    child: Text(
-                      'RCV',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF4F8F63),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DrawerItem(
+                label: 'HOME',
+                isCurrent: current == AppDrawerSection.home,
+                onTap: () {
+                  Navigator.pop(context);
+                  if (current != AppDrawerSection.home) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HomeScreen(),
                       ),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Radar Civil',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+                    );
+                  }
+                },
               ),
-            ),
 
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('HOME'),
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(),
-                  ),
-                );
-              },
-            ),
+              _DrawerItem(
+                label: 'FILTROS',
+                isCurrent: current == AppDrawerSection.filtros,
+                onTap: () async {
+                  Navigator.pop(context);
 
-            ListTile(
-              leading: const Icon(Icons.filter_alt),
-              title: const Text('FILTROS'),
-              onTap: () async {
-                Navigator.pop(context);
+                  final resultado = await FilterScreen.show(
+                    context,
+                    initial: filtrosAtuais,
+                  );
 
-                final resultado = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const FilterScreen(),
-                  ),
-                );
+                  if (resultado == null || !context.mounted) {
+                    return;
+                  }
 
-                if (resultado != null && context.mounted) {
+                  if (onFiltrosAplicados != null) {
+                    onFiltrosAplicados!(resultado);
+                    return;
+                  }
+
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
@@ -76,23 +69,68 @@ class AppDrawer extends StatelessWidget {
                     ),
                     (route) => false,
                   );
-                }
-              },
-            ),
+                },
+              ),
 
-            ListTile(
-              leading: const Icon(Icons.info),
-              title: const Text('SOBRE NÓS'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AboutScreen(),
-                  ),
-                );
-              },
-            ),
-          ],
+              _DrawerItem(
+                label: 'SOBRE NÓS',
+                isCurrent: current == AppDrawerSection.sobreNos,
+                onTap: () {
+                  Navigator.pop(context);
+                  if (current != AppDrawerSection.sobreNos) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AboutScreen(),
+                      ),
+                    );
+                  }
+                },
+              ),
+
+              _DrawerItem(
+                label: 'PATREON',
+                isCurrent: current == AppDrawerSection.patreon,
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Em breve')),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  final String label;
+  final bool isCurrent;
+  final VoidCallback onTap;
+
+  const _DrawerItem({
+    required this.label,
+    required this.onTap,
+    this.isCurrent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            color: isCurrent ? Colors.grey.shade400 : Colors.black87,
+          ),
         ),
       ),
     );

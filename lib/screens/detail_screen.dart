@@ -2,8 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/post.dart';
+import '../widgets/app_drawer.dart';
 import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+
+const _kGreen = Color(0xFF4F8F63);
+const _kYellow = Color(0xFFE3C34B);
 
 class DetailScreen extends StatelessWidget {
   final Post post;
@@ -61,92 +65,72 @@ class DetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      endDrawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text("Detalhes"),
-        backgroundColor: const Color(0xFF4F8F63),
-        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        backgroundColor: _kGreen,
+        centerTitle: true,
+        title: const Text(
+          'RADAR CIVIL',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header verde com autores ──────────────────────────────────
-            Container(
-              width: double.infinity,
-              color: const Color(0xFF4F8F63),
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-              child: FutureBuilder<AutoresInfo>(
-                future: Post.buscarAutoresPrincipais(post.id),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                    );
-                  }
-
-                  final info = snapshot.data!;
-                  final autores = info.principais;
-
-                  if (autores.isEmpty) {
-                    return const _AutorFallback();
-                  }
-
-                  return Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: autores
-                            .map((autor) => _AutorColuna(autor: autor))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '${info.total} autores totais',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.75),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+            // ── Banner do autor principal ─────────────────────────────────
+            FutureBuilder<AutoresInfo>(
+              future: Post.buscarAutoresPrincipais(post.id),
+              builder: (context, snapshot) {
+                final autor =
+                    snapshot.data?.principais.isNotEmpty == true
+                        ? snapshot.data!.principais.first
+                        : null;
+                return _AutorBanner(autor: autor);
+              },
             ),
 
             // ── Corpo ────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.all(20),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: -24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     post.title,
                     style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A1A1A),
                     ),
                   ),
 
-                  const SizedBox(height: 15),
-
-                  Row(
-                    children: [
-                      Chip(label: Text(post.tipo)),
-                      const SizedBox(width: 8),
-                      Chip(label: Text(post.ano)),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Texto extraído do PDF
                   FutureBuilder<String>(
                     future: _buscarTextoPdf(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                      if (snapshot.connectionState ==
+                          ConnectionState.waiting) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
                           child: Center(child: CircularProgressIndicator()),
@@ -165,49 +149,102 @@ class DetailScreen extends StatelessWidget {
 
                       return Text(
                         snapshot.data ?? '',
-                        style: const TextStyle(fontSize: 16, height: 1.6),
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.6,
+                          color: Colors.grey.shade700,
+                        ),
                       );
                     },
                   ),
 
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 22),
 
+                  // Data + Voltar
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.calendar_today, size: 18),
-                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          post.date.isEmpty ? "Data não informada" : post.date,
+                          post.date.isEmpty
+                              ? "Data não informada"
+                              : post.date,
+                          style: const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.grey.shade200,
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          "Voltar",
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 35),
+                  const SizedBox(height: 18),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE3C34B),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                  // Barra de progresso (mesmo padrão dos cards da Home)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: SizedBox(
+                      height: 6,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 25,
+                            child: Container(color: _kYellow),
+                          ),
+                          Expanded(
+                            flex: 75,
+                            child: Container(color: Colors.grey.shade300),
+                          ),
+                        ],
                       ),
-                      onPressed: _abrirOriginal,
-                      icon: const Icon(Icons.language),
-                      label: const Text("Ver Original"),
                     ),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 22),
 
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text("Voltar"),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _kYellow,
+                        foregroundColor: Colors.black,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _abrirOriginal,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Ver Original",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(Icons.north_east, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -222,73 +259,101 @@ class DetailScreen extends StatelessWidget {
 
 // ── Widgets auxiliares ────────────────────────────────────────────────────
 
-class _AutorColuna extends StatelessWidget {
-  final Autor autor;
+class _AutorBanner extends StatelessWidget {
+  final Autor? autor;
 
-  const _AutorColuna({required this.autor});
+  const _AutorBanner({required this.autor});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
+    final temFoto = autor?.fotoUrl != null;
+
+    return SizedBox(
+      height: 220,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          CircleAvatar(
-            radius: 38,
-            backgroundColor: Colors.white.withOpacity(0.25),
-            backgroundImage:
-                autor.fotoUrl != null ? NetworkImage(autor.fotoUrl!) : null,
-            child: autor.fotoUrl == null
-                ? const Icon(Icons.person, size: 38, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            autor.nome,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
-          if (autor.siglaPartido.isNotEmpty)
-            Text(
-              autor.siglaPartido,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 12,
+          if (temFoto)
+            Image.network(
+              autor!.fotoUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const _BannerFallbackBackground(),
+            )
+          else
+            const _BannerFallbackBackground(),
+
+          // Gradiente escuro na base para o texto ficar legível
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0),
+                  Colors.black.withValues(alpha: 0.75),
+                ],
+                stops: const [0.4, 1],
               ),
             ),
+          ),
+
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 36,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  autor?.nome ?? 'Câmara dos Deputados',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (autor?.siglaPartido.isNotEmpty == true) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.groups, size: 14, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text(
+                        autor!.siglaPartido,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _AutorFallback extends StatelessWidget {
-  const _AutorFallback();
+class _BannerFallbackBackground extends StatelessWidget {
+  const _BannerFallbackBackground();
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        CircleAvatar(
-          radius: 45,
-          backgroundColor: Colors.white,
-          child: Icon(Icons.person, size: 50, color: Color(0xFF4F8F63)),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_kGreen, Color(0xFF2E5E3F)],
         ),
-        SizedBox(height: 10),
-        Text(
-          'Câmara dos Deputados',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.person, size: 64, color: Colors.white70),
     );
   }
 }

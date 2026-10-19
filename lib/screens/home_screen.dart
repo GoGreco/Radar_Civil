@@ -3,7 +3,6 @@ import '../models/post.dart';
 import '../services/camara_service.dart';
 import '../widgets/post_card.dart';
 import '../widgets/app_drawer.dart';
-import 'filter_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.filtrosIniciais});
@@ -26,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? filtroPartido;
   String? filtroTema;
   String? filtroTemaNome;
+  String? filtroSituacao;
+  String? filtroSituacaoNome;
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       deputado: filtroDeputado,
       partido: filtroPartido,
       codTema: filtroTema,
+      codSituacao: filtroSituacao,
     );
 
     return dados.map<Post>((item) {
@@ -68,30 +70,38 @@ class _HomeScreenState extends State<HomeScreen> {
 
     filtroTema = resultado['tema'];
     filtroTemaNome = resultado['temaNome'];
+    filtroSituacao = resultado['situacao'];
+    filtroSituacaoNome = resultado['situacaoNome'];
   }
 
-  Future<void> abrirFiltros() async {
-    final resultado = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const FilterScreen(),
-      ),
-    );
-
-    if (resultado != null) {
-      setState(() {
-        _aplicarFiltros(resultado);
-        _postsFuture = _loadPosts();
-      });
-    }
-  }
+  Map<String, dynamic> get _filtrosAtuais => {
+        'tipo': filtroTipo,
+        'ano': filtroAno,
+        'numero': filtroNumero,
+        'deputado': filtroDeputado,
+        'partido': filtroPartido,
+        'tema': filtroTema,
+        'temaNome': filtroTemaNome,
+        'situacao': filtroSituacao,
+        'situacaoNome': filtroSituacaoNome,
+      };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
+      endDrawer: AppDrawer(
+        current: AppDrawerSection.home,
+        filtrosAtuais: _filtrosAtuais,
+        onFiltrosAplicados: (resultado) {
+          setState(() {
+            _aplicarFiltros(resultado);
+            _postsFuture = _loadPosts();
+          });
+        },
+      ),
 
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF4F8F63),
         centerTitle: true,
         title: const Text(
@@ -102,9 +112,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_alt),
-            onPressed: abrirFiltros,
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
           ),
         ],
       ),
@@ -116,7 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
               filtroNumero != null ||
               filtroDeputado != null ||
               filtroPartido != null ||
-              filtroTema != null)
+              filtroTema != null ||
+              filtroSituacao != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -152,6 +165,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (filtroTema != null)
                     Chip(
                       label: Text("Tema: ${filtroTemaNome ?? filtroTema}"),
+                    ),
+
+                  if (filtroSituacao != null)
+                    Chip(
+                      label: Text(
+                        "Situação: ${filtroSituacaoNome ?? filtroSituacao}",
+                      ),
                     ),
                 ],
               ),
@@ -206,12 +226,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
-      ),
-
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF4F8F63),
-        onPressed: abrirFiltros,
-        child: const Icon(Icons.filter_alt),
       ),
     );
   }

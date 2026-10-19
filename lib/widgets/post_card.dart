@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../screens/detail_screen.dart';
 
+const _kGreen = Color(0xFF4F8F63);
+const _kYellow = Color(0xFFE3C34B);
+
 class PostCard extends StatelessWidget {
   final Post post;
 
@@ -28,112 +31,110 @@ class PostCard extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Perfis
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: FutureBuilder<AutoresInfo>(
-                        future: Post.buscarAutoresPrincipais(post.id),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                'Carregando autores...',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            );
-                          }
-
-                          final info = snapshot.data!;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              for (final autor in info.principais)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 6),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: Colors.grey.shade200,
-                                        backgroundImage: autor.fotoUrl != null
-                                            ? NetworkImage(autor.fotoUrl!)
-                                            : null,
-                                        child: autor.fotoUrl == null
-                                            ? const Icon(
-                                                Icons.person,
-                                                size: 16,
-                                                color: Colors.grey,
-                                              )
-                                            : null,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '${autor.nome}/${autor.siglaPartido}',
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                            color: Color(0xFF4F8F63),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              Text(
-                                '${info.total} autores totais',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
                 // Título
                 Text(
                   post.title,
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 24,
+                    fontSize: 22,
                     color: Color(0xFF1A1A1A),
                   ),
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 // Descrição
                 Text(
                   post.description,
-                  maxLines: 4,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     height: 1.4,
-                    fontSize: 15,
-                    color: Colors.grey.shade500,
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
                   ),
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+
+                // Hashtags
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (post.tipo.isNotEmpty) _HashtagText(post.tipo),
+                    if (post.ano.isNotEmpty) _HashtagText(post.ano),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Autores
+                FutureBuilder<AutoresInfo>(
+                  future: Post.buscarAutoresPrincipais(post.id),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          'Carregando autores...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final info = snapshot.data!;
+                    final autores = info.principais;
+                    final extras = info.total - autores.length;
+
+                    if (autores.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final nomes = autores
+                        .map((autor) => autor.siglaPartido.isNotEmpty
+                            ? '${autor.nome} (${autor.siglaPartido})'
+                            : autor.nome)
+                        .join(', ');
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AvatarStack(autores: autores, extras: extras),
+                        const SizedBox(height: 10),
+                        Text(
+                          nomes,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: _kGreen,
+                          ),
+                        ),
+                        if (extras > 0) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '+$extras autores',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
                 // Data + botão
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -151,7 +152,7 @@ class PostCard extends StatelessWidget {
 
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE3C34B),
+                        backgroundColor: _kYellow,
                         foregroundColor: Colors.black,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
@@ -188,17 +189,118 @@ class PostCard extends StatelessWidget {
             ),
           ),
 
-          // Barra verde no rodapé
-          Container(
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFF4F8F63),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(18),
+          // Barra de progresso no rodapé
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(18),
+            ),
+            child: SizedBox(
+              height: 6,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 25,
+                    child: Container(color: _kYellow),
+                  ),
+                  Expanded(
+                    flex: 75,
+                    child: Container(color: Colors.grey.shade300),
+                  ),
+                ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HashtagText extends StatelessWidget {
+  final String label;
+
+  const _HashtagText(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '#$label',
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        color: _kGreen,
+      ),
+    );
+  }
+}
+
+class _AvatarStack extends StatelessWidget {
+  final List<Autor> autores;
+  final int extras;
+
+  const _AvatarStack({required this.autores, required this.extras});
+
+  static const _avatarSize = 34.0;
+  static const _overlap = 22.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final itemCount = autores.length + (extras > 0 ? 1 : 0);
+    final width =
+        itemCount == 0 ? 0.0 : _overlap * (itemCount - 1) + _avatarSize;
+
+    return SizedBox(
+      height: _avatarSize,
+      width: width,
+      child: Stack(
+        children: [
+          for (var i = 0; i < autores.length; i++)
+            Positioned(
+              left: i * _overlap,
+              child: Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.fromBorderSide(
+                    BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: _avatarSize / 2 - 2,
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage: autores[i].fotoUrl != null
+                      ? NetworkImage(autores[i].fotoUrl!)
+                      : null,
+                  child: autores[i].fotoUrl == null
+                      ? const Icon(Icons.person, size: 16, color: Colors.grey)
+                      : null,
+                ),
+              ),
+            ),
+          if (extras > 0)
+            Positioned(
+              left: autores.length * _overlap,
+              child: Container(
+                width: _avatarSize,
+                height: _avatarSize,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _kGreen,
+                  border: Border.fromBorderSide(
+                    BorderSide(color: Colors.white, width: 2),
+                  ),
+                ),
+                child: Text(
+                  '+$extras',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

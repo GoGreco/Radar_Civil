@@ -33,6 +33,7 @@ class CamaraService {
     String? deputado,
     String? partido,
     String? codTema,
+    String? codSituacao,
     int pagina = 1,
     int itens = 20,
   }) async {
@@ -49,6 +50,7 @@ class CamaraService {
       if (deputado?.isNotEmpty == true) 'autor': deputado!,
       if (partido?.isNotEmpty == true) 'siglaPartidoAutor': partido!,
       if (codTema?.isNotEmpty == true) 'codTema': codTema!,
+      if (codSituacao?.isNotEmpty == true) 'codSituacao': codSituacao!,
     };
     final cacheKey = 'proposicoes:${_canonicalQuery(query)}';
     final cache = await _localCache;
@@ -147,6 +149,61 @@ class CamaraService {
     }
 
     await _writeJson(cache, 'catalogo:temas', fallback);
+    return fallback;
+  }
+
+  Future<List<Map<String, String>>> getSituacoes() async {
+    const fallback = [
+      {'cod': '903', 'nome': 'Aguardando Deliberação'},
+      {'cod': '915', 'nome': 'Aguardando Parecer'},
+      {'cod': '906', 'nome': 'Aguardando Distribuição'},
+      {'cod': '924', 'nome': 'Pronta para Pauta'},
+      {'cod': '925', 'nome': 'Tramitando em Conjunto'},
+      {'cod': '923', 'nome': 'Arquivada'},
+      {'cod': '950', 'nome': 'Retirado pelo(a) Autor(a)'},
+      {'cod': '941', 'nome': 'Recusado'},
+      {'cod': '937', 'nome': 'Vetado totalmente'},
+    ];
+
+    final cache = await _localCache;
+    final cached =
+        await _readFreshMapList(cache, 'catalogo:situacoes', _catalogoTtl);
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final uri = Uri.parse('$baseUrl/referencias/proposicoes/codSituacao');
+      final response = await _client
+          .get(uri, headers: {'accept': 'application/json'})
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final dados = decoded['dados'];
+
+        if (dados is List) {
+          final situacoes = dados
+              .whereType<Map>()
+              .map((item) => {
+                    'cod': (item['cod'] ?? '').toString(),
+                    'nome': (item['nome'] ?? '').toString(),
+                  })
+              .where((item) =>
+                  item['cod']!.isNotEmpty && item['nome']!.isNotEmpty)
+              .toList();
+
+          if (situacoes.isNotEmpty) {
+            await _writeJson(cache, 'catalogo:situacoes', situacoes);
+            return situacoes;
+          }
+        }
+      }
+    } catch (_) {
+      // Mantém o fallback abaixo quando a API está indisponível.
+    }
+
+    await _writeJson(cache, 'catalogo:situacoes', fallback);
     return fallback;
   }
 

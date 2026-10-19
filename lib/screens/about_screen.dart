@@ -7,11 +7,27 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
+      endDrawer: const AppDrawer(current: AppDrawerSection.sobreNos),
 
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF4F8F63),
-        title: const Text('Sobre Nós'),
+        centerTitle: true,
+        title: const Text(
+          'RADAR CIVIL',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
 
       body: const Padding(
