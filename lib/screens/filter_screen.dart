@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/camara_service.dart';
+import 'home_screen.dart';
 
 const _kGreen = Color(0xFF4F8F63);
 const _kYellow = Color(0xFFE3C34B);
@@ -24,6 +25,25 @@ class FilterScreen {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _FilterSheet(initial: initial),
+    );
+  }
+
+  /// Abre o modal e, se o usuário aplicar algum filtro, navega para a Home
+  /// já com esses filtros. Usado em telas que não têm lista própria pra
+  /// filtrar (ex: Sobre Nós).
+  static Future<void> showAndGoHome(BuildContext context) async {
+    final resultado = await show(context);
+
+    if (resultado == null || !context.mounted) {
+      return;
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(filtrosIniciais: resultado),
+      ),
+      (route) => false,
     );
   }
 }

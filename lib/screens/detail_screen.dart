@@ -105,7 +105,6 @@ class DetailScreen extends StatelessWidget {
             // ── Corpo ────────────────────────────────────────────────────
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.only(top: -24),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -266,7 +265,7 @@ class _AutorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final temFoto = autor?.fotoUrl != null;
+    final temFoto = (autor?.fotoUrl ?? '').isNotEmpty;
 
     return SizedBox(
       height: 220,

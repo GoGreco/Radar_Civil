@@ -3,6 +3,7 @@ import '../models/post.dart';
 import '../services/camara_service.dart';
 import '../widgets/post_card.dart';
 import '../widgets/app_drawer.dart';
+import 'filter_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.filtrosIniciais});
@@ -86,18 +87,23 @@ class _HomeScreenState extends State<HomeScreen> {
         'situacaoNome': filtroSituacaoNome,
       };
 
+  Future<void> abrirFiltros() async {
+    final resultado = await FilterScreen.show(context, initial: _filtrosAtuais);
+
+    if (resultado != null && mounted) {
+      setState(() {
+        _aplicarFiltros(resultado);
+        _postsFuture = _loadPosts();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       endDrawer: AppDrawer(
         current: AppDrawerSection.home,
-        filtrosAtuais: _filtrosAtuais,
-        onFiltrosAplicados: (resultado) {
-          setState(() {
-            _aplicarFiltros(resultado);
-            _postsFuture = _loadPosts();
-          });
-        },
+        onAbrirFiltros: abrirFiltros,
       ),
 
       appBar: AppBar(
@@ -226,6 +232,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF4F8F63),
+        onPressed: abrirFiltros,
+        child: const Icon(Icons.filter_alt, color: Colors.white),
       ),
     );
   }

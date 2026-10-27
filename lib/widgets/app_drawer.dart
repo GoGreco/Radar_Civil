@@ -7,14 +7,15 @@ enum AppDrawerSection { home, filtros, sobreNos, patreon }
 
 class AppDrawer extends StatelessWidget {
   final AppDrawerSection? current;
-  final Map<dynamic, dynamic>? filtrosAtuais;
-  final ValueChanged<Map<String, dynamic>>? onFiltrosAplicados;
+
+  /// Chamado quando o usuário toca em FILTROS, depois do drawer já ter
+  /// fechado. Quando omitido, abre o modal de filtros e navega pra Home.
+  final VoidCallback? onAbrirFiltros;
 
   const AppDrawer({
     super.key,
     this.current,
-    this.filtrosAtuais,
-    this.onFiltrosAplicados,
+    this.onAbrirFiltros,
   });
 
   @override
@@ -45,30 +46,14 @@ class AppDrawer extends StatelessWidget {
               _DrawerItem(
                 label: 'FILTROS',
                 isCurrent: current == AppDrawerSection.filtros,
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(context);
 
-                  final resultado = await FilterScreen.show(
-                    context,
-                    initial: filtrosAtuais,
-                  );
-
-                  if (resultado == null || !context.mounted) {
-                    return;
+                  if (onAbrirFiltros != null) {
+                    onAbrirFiltros!();
+                  } else {
+                    FilterScreen.showAndGoHome(context);
                   }
-
-                  if (onFiltrosAplicados != null) {
-                    onFiltrosAplicados!(resultado);
-                    return;
-                  }
-
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => HomeScreen(filtrosIniciais: resultado),
-                    ),
-                    (route) => false,
-                  );
                 },
               ),
 
