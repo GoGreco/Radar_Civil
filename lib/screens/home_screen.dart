@@ -15,9 +15,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _itensPorPagina = 20;
+
   final CamaraService _camaraService = CamaraService();
 
-  late Future<List<Post>> _postsFuture;
+  List<Post> _posts = [];
+  int _paginaAtual = 1;
+  bool _carregandoInicial = true;
+  bool _carregandoMais = false;
+  bool _temMais = true;
+  bool _erro = false;
 
   String? filtroTipo;
   String? filtroAno;
@@ -37,10 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _aplicarFiltros(widget.filtrosIniciais!);
     }
 
-    _postsFuture = _loadPosts();
+    _carregarInicial();
   }
 
-  Future<List<Post>> _loadPosts() async {
+  Future<List<Post>> _buscarPagina(int pagina) async {
     final dados = await _camaraService.getProposicoes(
       tipo: filtroTipo,
       ano: filtroAno,
@@ -49,11 +56,62 @@ class _HomeScreenState extends State<HomeScreen> {
       partido: filtroPartido,
       codTema: filtroTema,
       codSituacao: filtroSituacao,
+      pagina: pagina,
+      itens: _itensPorPagina,
     );
 
-    return dados.map<Post>((item) {
-      return Post.fromApi(item);
-    }).toList();
+    return dados.map<Post>((item) => Post.fromApi(item)).toList();
+  }
+
+  Future<void> _carregarInicial() async {
+    setState(() {
+      _carregandoInicial = true;
+      _erro = false;
+    });
+
+    try {
+      final posts = await _buscarPagina(1);
+
+      if (!mounted) return;
+      setState(() {
+        _posts = posts;
+        _paginaAtual = 1;
+        _temMais = posts.length >= _itensPorPagina;
+        _carregandoInicial = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _erro = true;
+        _carregandoInicial = false;
+      });
+    }
+  }
+
+  Future<void> _carregarMais() async {
+    if (_carregandoMais || !_temMais) return;
+
+    setState(() => _carregandoMais = true);
+
+    final proximaPagina = _paginaAtual + 1;
+
+    try {
+      final novosPosts = await _buscarPagina(proximaPagina);
+
+      if (!mounted) return;
+      setState(() {
+        _posts = [..._posts, ...novosPosts];
+        _paginaAtual = proximaPagina;
+        _temMais = novosPosts.length >= _itensPorPagina;
+        _carregandoMais = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _carregandoMais = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro ao carregar mais proposições')),
+      );
+    }
   }
 
   void _aplicarFiltros(Map<dynamic, dynamic> resultado) {
@@ -91,10 +149,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final resultado = await FilterScreen.show(context, initial: _filtrosAtuais);
 
     if (resultado != null && mounted) {
-      setState(() {
-        _aplicarFiltros(resultado);
-        _postsFuture = _loadPosts();
-      });
+      _aplicarFiltros(resultado);
+      await _carregarInicial();
     }
   }
 
@@ -183,54 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-          Expanded(
-            child: FutureBuilder<List<Post>>(
-              future: _postsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return const Center(
-                    child: Text(
-                      'Erro ao carregar proposições',
-                    ),
-                  );
-                }
-
-                final posts = snapshot.data ?? [];
-
-                if (posts.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Nenhuma proposição encontrada',
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    setState(() {
-                      _postsFuture = _loadPosts();
-                    });
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                    ),
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) {
-                      return PostCard(posts[index]);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          Expanded(child: _buildCorpo()),
         ],
       ),
 
@@ -238,6 +247,81 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF4F8F63),
         onPressed: abrirFiltros,
         child: const Icon(Icons.filter_alt, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildCorpo() {
+    if (_carregandoInicial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_erro && _posts.isEmpty) {
+      return const Center(
+        child: Text('Erro ao carregar proposições'),
+      );
+    }
+
+    if (_posts.isEmpty) {
+      return const Center(
+        child: Text('Nenhuma proposição encontrada'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _carregarInicial,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        itemCount: _posts.length + 1,
+        itemBuilder: (context, index) {
+          if (index < _posts.length) {
+            return PostCard(_posts[index]);
+          }
+          return _buildRodape();
+        },
+      ),
+    );
+  }
+
+  Widget _buildRodape() {
+    if (_carregandoMais) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_temMais) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            'Não há mais proposições',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: _carregarMais,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF4F8F63),
+            side: const BorderSide(color: Color(0xFF4F8F63)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            'CARREGAR MAIS',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
       ),
     );
   }
