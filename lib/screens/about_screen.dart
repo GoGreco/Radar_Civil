@@ -13,6 +13,12 @@ class AboutScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF4F8F63),
         centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+          ),
+        ),
         title: const Text(
           'RADAR CIVIL',
           style: TextStyle(
@@ -20,14 +26,6 @@ class AboutScreen extends StatelessWidget {
             letterSpacing: 1,
           ),
         ),
-        actions: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
-          ),
-        ],
       ),
 
       body: const Padding(

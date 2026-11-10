@@ -20,9 +20,16 @@ class AutoresInfo {
   AutoresInfo({required this.principais, required this.total});
 }
 
+class DetalhesProposicao {
+  final String? urlInteiroTeor;
+  final String? descricaoSituacao;
+
+  DetalhesProposicao({this.urlInteiroTeor, this.descricaoSituacao});
+}
+
 class Post {
   static final Map<int, Future<AutoresInfo>> _autoresCache = {};
-  static final Map<int, Future<String?>> _inteiroTeorCache = {};
+  static final Map<int, Future<DetalhesProposicao>> _detalhesCache = {};
 
   final int id;
   final String author;
@@ -70,27 +77,63 @@ class Post {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'author': author,
+        'title': title,
+        'description': description,
+        'date': date,
+        'tipo': tipo,
+        'ano': ano,
+        'link': link,
+        'authorImageUrl': authorImageUrl,
+        'urlInteiroTeor': urlInteiroTeor,
+      };
+
+  factory Post.fromJson(Map<String, dynamic> json) => Post(
+        id: json['id'] ?? 0,
+        author: json['author'] ?? '',
+        title: json['title'] ?? '',
+        description: json['description'] ?? '',
+        date: json['date'] ?? '',
+        tipo: json['tipo'] ?? '',
+        ano: json['ano'] ?? '',
+        link: json['link'],
+        authorImageUrl: json['authorImageUrl'],
+        urlInteiroTeor: json['urlInteiroTeor'],
+      );
+
   static Future<String?> buscarUrlInteiroTeor(int proposicaoId) async {
-    final cached = _inteiroTeorCache[proposicaoId];
+    final detalhes = await buscarDetalhes(proposicaoId);
+    return detalhes.urlInteiroTeor;
+  }
+
+  static Future<DetalhesProposicao> buscarDetalhes(int proposicaoId) async {
+    final cached = _detalhesCache[proposicaoId];
     if (cached != null) {
       return cached;
     }
 
-    final request = _buscarUrlInteiroTeor(proposicaoId);
-    _inteiroTeorCache[proposicaoId] = request;
+    final request = _buscarDetalhes(proposicaoId);
+    _detalhesCache[proposicaoId] = request;
     return request;
   }
 
-  static Future<String?> _buscarUrlInteiroTeor(int proposicaoId) async {
+  static Future<DetalhesProposicao> _buscarDetalhes(int proposicaoId) async {
     try {
       final resp = await http.get(Uri.parse(
         'https://dadosabertos.camara.leg.br/api/v2/proposicoes/$proposicaoId',
       )).timeout(const Duration(seconds: 15));
       if (resp.statusCode == 200) {
-        return jsonDecode(resp.body)['dados']['urlInteiroTeor'] as String?;
+        final dados = jsonDecode(resp.body)['dados'];
+        return DetalhesProposicao(
+          urlInteiroTeor: dados['urlInteiroTeor'] as String?,
+          descricaoSituacao:
+              dados['statusProposicao']?['descricaoSituacao'] as String?,
+        );
       }
     } catch (_) {}
-    return null;
+    return DetalhesProposicao();
   }
 
   static Future<AutoresInfo> buscarAutoresPrincipais(int proposicaoId) async {

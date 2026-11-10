@@ -4,6 +4,7 @@ import '../services/camara_service.dart';
 import '../widgets/post_card.dart';
 import '../widgets/app_drawer.dart';
 import 'filter_screen.dart';
+import 'saved_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.filtrosIniciais});
@@ -145,6 +146,72 @@ class _HomeScreenState extends State<HomeScreen> {
         'situacaoNome': filtroSituacaoNome,
       };
 
+  void _removerFiltro(VoidCallback limpar) {
+    setState(limpar);
+    _carregarInicial();
+  }
+
+  List<_FiltroAtivoHome> get _filtrosAtivos {
+    final lista = <_FiltroAtivoHome>[];
+
+    if (filtroTipo != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroTipo!,
+        () => _removerFiltro(() => filtroTipo = null),
+      ));
+    }
+
+    if (filtroAno != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroAno!,
+        () => _removerFiltro(() => filtroAno = null),
+      ));
+    }
+
+    if (filtroNumero != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroNumero!,
+        () => _removerFiltro(() => filtroNumero = null),
+      ));
+    }
+
+    if (filtroDeputado != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroDeputado!,
+        () => _removerFiltro(() => filtroDeputado = null),
+      ));
+    }
+
+    if (filtroPartido != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroPartido!,
+        () => _removerFiltro(() => filtroPartido = null),
+      ));
+    }
+
+    if (filtroTema != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroTemaNome ?? filtroTema!,
+        () => _removerFiltro(() {
+          filtroTema = null;
+          filtroTemaNome = null;
+        }),
+      ));
+    }
+
+    if (filtroSituacao != null) {
+      lista.add(_FiltroAtivoHome(
+        filtroSituacaoNome ?? filtroSituacao!,
+        () => _removerFiltro(() {
+          filtroSituacao = null;
+          filtroSituacaoNome = null;
+        }),
+      ));
+    }
+
+    return lista;
+  }
+
   Future<void> abrirFiltros() async {
     final resultado = await FilterScreen.show(context, initial: _filtrosAtuais);
 
@@ -166,6 +233,12 @@ class _HomeScreenState extends State<HomeScreen> {
         automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF4F8F63),
         centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+          ),
+        ),
         title: const Text(
           'RADAR CIVIL',
           style: TextStyle(
@@ -174,68 +247,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
+          IconButton(
+            icon: const Icon(Icons.bookmark),
+            tooltip: 'Salvos',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SavedScreen()),
+              );
+            },
           ),
         ],
       ),
 
       body: Column(
         children: [
-          if (filtroTipo != null ||
-              filtroAno != null ||
-              filtroNumero != null ||
-              filtroDeputado != null ||
-              filtroPartido != null ||
-              filtroTema != null ||
-              filtroSituacao != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: Colors.green.shade50,
+          if (_filtrosAtivos.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Wrap(
-                spacing: 10,
-                children: [
-                  if (filtroTipo != null)
-                    Chip(
-                      label: Text("Tipo: $filtroTipo"),
-                    ),
-
-                  if (filtroAno != null)
-                    Chip(
-                      label: Text("Ano: $filtroAno"),
-                    ),
-
-                  if (filtroNumero != null)
-                    Chip(
-                      label: Text("Número: $filtroNumero"),
-                    ),
-
-                  if (filtroDeputado != null)
-                    Chip(
-                      label: Text("Deputado: $filtroDeputado"),
-                    ),
-
-                  if (filtroPartido != null)
-                    Chip(
-                      label: Text("Partido: $filtroPartido"),
-                    ),
-
-                  if (filtroTema != null)
-                    Chip(
-                      label: Text("Tema: ${filtroTemaNome ?? filtroTema}"),
-                    ),
-
-                  if (filtroSituacao != null)
-                    Chip(
-                      label: Text(
-                        "Situação: ${filtroSituacaoNome ?? filtroSituacao}",
-                      ),
-                    ),
-                ],
+                spacing: 8,
+                runSpacing: 8,
+                children: _filtrosAtivos
+                    .map((filtro) => _FiltroChip(
+                          label: filtro.label,
+                          onRemove: filtro.onRemove,
+                        ))
+                    .toList(),
               ),
             ),
 
@@ -322,6 +360,50 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FiltroAtivoHome {
+  final String label;
+  final VoidCallback onRemove;
+
+  _FiltroAtivoHome(this.label, this.onRemove);
+}
+
+class _FiltroChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onRemove;
+
+  const _FiltroChip({required this.label, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '#$label',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4F8F63),
+            ),
+          ),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: onRemove,
+            child: const Icon(Icons.close, size: 14, color: Colors.black54),
+          ),
+        ],
       ),
     );
   }

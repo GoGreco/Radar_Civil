@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/post.dart';
+import '../services/saved_posts_service.dart';
 import '../widgets/app_drawer.dart';
 import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
@@ -70,6 +71,12 @@ class DetailScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         backgroundColor: _kGreen,
         centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+          ),
+        ),
         title: const Text(
           'RADAR CIVIL',
           style: TextStyle(
@@ -77,29 +84,62 @@ class DetailScreen extends StatelessWidget {
             letterSpacing: 1,
           ),
         ),
-        actions: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Banner do autor principal ─────────────────────────────────
-            FutureBuilder<AutoresInfo>(
-              future: Post.buscarAutoresPrincipais(post.id),
-              builder: (context, snapshot) {
-                final autor =
-                    snapshot.data?.principais.isNotEmpty == true
-                        ? snapshot.data!.principais.first
-                        : null;
-                return _AutorBanner(autor: autor);
-              },
+            // ── Autores (scroll horizontal) ───────────────────────────────
+            Container(
+              width: double.infinity,
+              color: _kGreen,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: FutureBuilder<AutoresInfo>(
+                future: Post.buscarAutoresPrincipais(post.id),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SizedBox(
+                      height: 130,
+                      child: Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    );
+                  }
+
+                  final info = snapshot.data!;
+
+                  if (info.principais.isEmpty) {
+                    return const _AutorFallback();
+                  }
+
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: 130,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: info.principais.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (_, index) =>
+                              _AutorCard(autor: info.principais[index]),
+                        ),
+                      ),
+                      if (info.total > info.principais.length) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          '+${info.total - info.principais.length} autores',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
             ),
 
             // ── Corpo ────────────────────────────────────────────────────
@@ -113,6 +153,28 @@ class DetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Situação + salvar
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FutureBuilder<DetalhesProposicao>(
+                          future: Post.buscarDetalhes(post.id),
+                          builder: (context, snapshot) {
+                            final situacao = snapshot.data?.descricaoSituacao;
+                            if (situacao == null || situacao.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return _SituacaoBadge(situacao: situacao);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _SalvarButton(post: post),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
                   Text(
                     post.title,
                     style: const TextStyle(
@@ -157,6 +219,17 @@ class DetailScreen extends StatelessWidget {
                     },
                   ),
 
+                  const SizedBox(height: 16),
+
+                  // Hashtags
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (post.tipo.isNotEmpty) _HashtagText(post.tipo),
+                      if (post.ano.isNotEmpty) _HashtagText(post.ano),
+                    ],
+                  ),
+
                   const SizedBox(height: 22),
 
                   // Data + Voltar
@@ -194,28 +267,6 @@ class DetailScreen extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  // Barra de progresso (mesmo padrão dos cards da Home)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: SizedBox(
-                      height: 6,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 25,
-                            child: Container(color: _kYellow),
-                          ),
-                          Expanded(
-                            flex: 75,
-                            child: Container(color: Colors.grey.shade300),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
 
                   const SizedBox(height: 22),
@@ -258,78 +309,133 @@ class DetailScreen extends StatelessWidget {
 
 // ── Widgets auxiliares ────────────────────────────────────────────────────
 
-class _AutorBanner extends StatelessWidget {
-  final Autor? autor;
+class _AutorCard extends StatelessWidget {
+  final Autor autor;
 
-  const _AutorBanner({required this.autor});
+  const _AutorCard({required this.autor});
 
   @override
   Widget build(BuildContext context) {
-    final temFoto = (autor?.fotoUrl ?? '').isNotEmpty;
+    final temFoto = autor.fotoUrl != null && autor.fotoUrl!.isNotEmpty;
 
     return SizedBox(
-      height: 220,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
+      width: 90,
+      child: Column(
         children: [
-          if (temFoto)
-            Image.network(
-              autor!.fotoUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const _BannerFallbackBackground(),
-            )
-          else
-            const _BannerFallbackBackground(),
-
-          // Gradiente escuro na base para o texto ficar legível
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0),
-                  Colors.black.withValues(alpha: 0.75),
-                ],
-                stops: const [0.4, 1],
-              ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: temFoto
+                ? Image.network(
+                    autor.fotoUrl!,
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const _AutorFotoFallback(),
+                  )
+                : const _AutorFotoFallback(),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            autor.nome.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
             ),
           ),
+          if (autor.siglaPartido.isNotEmpty)
+            Text(
+              autor.siglaPartido,
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 36,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  autor?.nome ?? 'Câmara dos Deputados',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (autor?.siglaPartido.isNotEmpty == true) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.groups, size: 14, color: Colors.white70),
-                      const SizedBox(width: 6),
-                      Text(
-                        autor!.siglaPartido,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+class _AutorFotoFallback extends StatelessWidget {
+  const _AutorFotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 90,
+      height: 90,
+      color: Colors.white24,
+      child: const Icon(Icons.person, color: Colors.white70, size: 36),
+    );
+  }
+}
+
+class _AutorFallback extends StatelessWidget {
+  const _AutorFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: Colors.white24,
+          child: Icon(Icons.person, size: 40, color: Colors.white70),
+        ),
+        SizedBox(height: 10),
+        Text(
+          'Câmara dos Deputados',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SituacaoBadge extends StatelessWidget {
+  final String situacao;
+
+  const _SituacaoBadge({required this.situacao});
+
+  @override
+  Widget build(BuildContext context) {
+    final situacaoLower = situacao.toLowerCase();
+    final encerrada = situacaoLower.contains('arquiv') ||
+        situacaoLower.contains('retirad') ||
+        situacaoLower.contains('vetad');
+
+    final cor = encerrada ? Colors.grey.shade600 : const Color(0xFFE3902E);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: cor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              situacao.toUpperCase(),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: cor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
         ],
@@ -338,21 +444,76 @@ class _AutorBanner extends StatelessWidget {
   }
 }
 
-class _BannerFallbackBackground extends StatelessWidget {
-  const _BannerFallbackBackground();
+class _HashtagText extends StatelessWidget {
+  final String label;
+
+  const _HashtagText(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '#$label',
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        color: _kGreen,
+      ),
+    );
+  }
+}
+
+class _SalvarButton extends StatefulWidget {
+  final Post post;
+
+  const _SalvarButton({required this.post});
+
+  @override
+  State<_SalvarButton> createState() => _SalvarButtonState();
+}
+
+class _SalvarButtonState extends State<_SalvarButton> {
+  final SavedPostsService _service = SavedPostsService();
+
+  bool _salvo = false;
+  bool _carregado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    final salvo = await _service.estaSalvo(widget.post.id);
+    if (!mounted) return;
+    setState(() {
+      _salvo = salvo;
+      _carregado = true;
+    });
+  }
+
+  Future<void> _alternar() async {
+    setState(() => _salvo = !_salvo);
+    final estado = await _service.alternar(widget.post);
+    if (!mounted) return;
+    setState(() => _salvo = estado);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_kGreen, Color(0xFF2E5E3F)],
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        onPressed: _carregado ? _alternar : null,
+        tooltip: _salvo ? 'Remover dos salvos' : 'Salvar',
+        icon: Icon(
+          _salvo ? Icons.bookmark : Icons.bookmark_border,
+          color: _kGreen,
         ),
       ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.person, size: 64, color: Colors.white70),
     );
   }
 }
