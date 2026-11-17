@@ -23,8 +23,13 @@ class AutoresInfo {
 class DetalhesProposicao {
   final String? urlInteiroTeor;
   final String? descricaoSituacao;
+  final String? codSituacao;
 
-  DetalhesProposicao({this.urlInteiroTeor, this.descricaoSituacao});
+  DetalhesProposicao({
+    this.urlInteiroTeor,
+    this.descricaoSituacao,
+    this.codSituacao,
+  });
 }
 
 class Post {
@@ -130,6 +135,7 @@ class Post {
           urlInteiroTeor: dados['urlInteiroTeor'] as String?,
           descricaoSituacao:
               dados['statusProposicao']?['descricaoSituacao'] as String?,
+          codSituacao: dados['statusProposicao']?['codSituacao']?.toString(),
         );
       }
     } catch (_) {}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/post.dart';
+import '../models/situacao.dart';
 import '../screens/detail_screen.dart';
 
 const _kGreen = Color(0xFF4F8F63);
@@ -189,27 +190,23 @@ class PostCard extends StatelessWidget {
             ),
           ),
 
-          // Barra de progresso no rodapé
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(18),
-              bottomRight: Radius.circular(18),
-            ),
-            child: SizedBox(
-              height: 6,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 25,
-                    child: Container(color: _kYellow),
-                  ),
-                  Expanded(
-                    flex: 75,
-                    child: Container(color: Colors.grey.shade300),
-                  ),
-                ],
-              ),
-            ),
+          FutureBuilder<DetalhesProposicao>(
+            future: Post.buscarDetalhes(post.id),
+            builder: (context, snapshot) {
+              final cor = corDaSituacao(snapshot.data?.codSituacao);
+
+              return ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+                child: SizedBox(
+                  height: 6,
+                  width: double.infinity,
+                  child: ColoredBox(color: cor),
+                ),
+              );
+            },
           ),
         ],
       ),
