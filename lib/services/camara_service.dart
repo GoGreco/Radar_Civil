@@ -17,6 +17,21 @@ class CamaraService {
   static const _proposicoesTtl = Duration(minutes: 5);
   static const _catalogoTtl = Duration(hours: 24);
 
+  static const List<String> tiposPermitidos = [
+  'PEC', // Proposta de Emenda à Constituição
+  'PLP', // Projeto de Lei Complementar
+  'PL',  // Projeto de Lei
+  'MPV', // Medida Provisória
+  'PLV', // Projeto de Lei de Conversão
+  'PDL', // Projeto de Decreto Legislativo
+  'PRC', // Projeto de Resolução
+  'REQ', // Requerimento
+  'RIC', // Requerimento de Informação
+  'RCP', // Requerimento de Instituição de CPI
+  'MSC', // Mensagem
+  'INC', // Indicação
+  ];
+
   Future<LocalCache> get _localCache async {
     if (_cache != null) {
       return _cache!;
@@ -44,7 +59,9 @@ class CamaraService {
       'ordenarPor': 'id',
       'pagina': '$normalizedPage',
       'itens': '$normalizedItems',
-      if (tipo?.isNotEmpty == true) 'siglaTipo': tipo!,
+      'siglaTipo': (tipo != null && tiposPermitidos.contains(tipo))
+        ? tipo
+        : tiposPermitidos.join(','),
       if (ano?.isNotEmpty == true) 'ano': ano!,
       if (numero?.isNotEmpty == true) 'numero': numero!,
       if (deputado?.isNotEmpty == true) 'autor': deputado!,
@@ -89,14 +106,8 @@ class CamaraService {
   }
 
   Future<List<String>> getTiposProposicao() async {
-    const fallback = [
-      'PEC',
-      'PL',
-      'PLP',
-      'MPV',
-    ];
-    return _getCachedCatalog('tipos', fallback);
-  }
+  return _getCachedCatalog('tipos', tiposPermitidos);
+}
 
   Future<List<String>> getAnos() async {
     final anoAtual = DateTime.now().year;

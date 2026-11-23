@@ -10,6 +10,14 @@ const _tipoLabels = {
   'PL': 'Projeto de Lei',
   'PLP': 'Projeto de Lei Complementar',
   'MPV': 'Medida Provisória',
+  'PLV': 'Projeto de Lei de Conversão',
+  'PDL': 'Projeto de Decreto Legislativo',
+  'PRC': 'Projeto de Resolução',
+  'REQ': 'Requerimento',
+  'RIC': 'Requerimento de Informação',
+  'RCP': 'Requerimento de Instituição de CPI',
+  'MSC': 'Mensagem',
+  'INC': 'Indicação',
 };
 
 /// Modal de filtros, aberto por cima da tela atual (ver [show]).
