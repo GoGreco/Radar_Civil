@@ -2,25 +2,70 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../models/situacao.dart';
 import '../screens/detail_screen.dart';
+import '../services/saved_posts_service.dart';
 
 const _kGreen = Color(0xFF4F8F63);
-const _kYellow = Color(0xFFE3C34B);
+const _kLaranja = Color(0xFFFFA725);
+const _kHashtag = Color(0xFF899994);
 
-class PostCard extends StatelessWidget {
+/// Largura (em dp) abaixo da qual o card usa medidas mais compactas.
+const _kLarguraCompacta = 360.0;
+
+class PostCard extends StatefulWidget {
   final Post post;
 
   const PostCard(this.post, {super.key});
 
   @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  final SavedPostsService _salvosService = SavedPostsService();
+
+  late final Future<AutoresInfo> _autores =
+      Post.buscarAutoresPrincipais(widget.post.id);
+  late final Future<DetalhesProposicao> _detalhes =
+      Post.buscarDetalhes(widget.post.id);
+
+  bool _salvo = false;
+
+  Post get post => widget.post;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarSalvo();
+  }
+
+  Future<void> _carregarSalvo() async {
+    final salvo = await _salvosService.estaSalvo(post.id);
+    if (!mounted) return;
+    setState(() => _salvo = salvo);
+  }
+
+  Future<void> _alternarSalvo() async {
+    final novoEstado = await _salvosService.alternar(post);
+    if (!mounted) return;
+    setState(() => _salvo = novoEstado);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final compacto = MediaQuery.sizeOf(context).width < _kLarguraCompacta;
+    final padding = compacto ? 14.0 : 16.0;
+
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 10,
+      margin: EdgeInsets.symmetric(
+        horizontal: compacto ? 12 : 16,
+        vertical: 8,
       ),
+      // clipBehavior garante que a faixa de status não passe da borda
+      // arredondada do card.
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -32,58 +77,84 @@ class PostCard extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            padding: EdgeInsets.all(padding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Título
-                Text(
-                  post.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 22,
-                    color: Color(0xFF1A1A1A),
-                  ),
+                // Título + botão de salvar
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        post.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: compacto ? 17 : 18,
+                          height: 1.2,
+                          color: const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkResponse(
+                      onTap: _alternarSalvo,
+                      radius: 22,
+                      child: Tooltip(
+                        message: _salvo ? 'Remover dos salvos' : 'Salvar',
+                        child: Icon(
+                          _salvo ? Icons.bookmark : Icons.bookmark_border,
+                          size: 26,
+                          color: _salvo ? _kGreen : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 // Descrição
                 Text(
                   post.description,
-                  maxLines: 3,
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     height: 1.4,
-                    fontSize: 14,
+                    fontSize: 13.5,
                     color: Colors.grey.shade600,
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Hashtags
                 Wrap(
                   spacing: 8,
+                  runSpacing: 2,
                   children: [
                     if (post.tipo.isNotEmpty) _HashtagText(post.tipo),
                     if (post.ano.isNotEmpty) _HashtagText(post.ano),
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Autores
                 FutureBuilder<AutoresInfo>(
-                  future: Post.buscarAutoresPrincipais(post.id),
+                  future: _autores,
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) return const SizedBox.shrink();
+
                     if (!snapshot.hasData) {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: 4),
                         child: Text(
                           'Carregando autores...',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Colors.grey,
                           ),
                         ),
@@ -108,14 +179,15 @@ class PostCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _AvatarStack(autores: autores, extras: extras),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Text(
-                          nomes,
-                          maxLines: 1,
+                          extras > 0 ? '$nomes…' : nomes,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                            fontSize: 13,
+                            height: 1.3,
                             color: _kGreen,
                           ),
                         ),
@@ -124,7 +196,7 @@ class PostCard extends StatelessWidget {
                           Text(
                             '+$extras autores',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11.5,
                               color: Colors.grey.shade600,
                             ),
                           ),
@@ -134,53 +206,61 @@ class PostCard extends StatelessWidget {
                   },
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Data + botão
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Text(
-                        post.date.isEmpty ? "Sem data" : post.date,
+                        post.date.isEmpty ? 'Sem data' : post.date,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
                           color: Colors.black87,
                         ),
                       ),
                     ),
-
+                    const SizedBox(width: 8),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _kYellow,
-                        foregroundColor: Colors.black,
+                        backgroundColor: _kLaranja,
+                        foregroundColor: Colors.black87,
                         elevation: 0,
+                        minimumSize: const Size(0, 36),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
+                          horizontal: 16,
+                          vertical: 8,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      onPressed: () {
-                        Navigator.push(
+                      onPressed: () async {
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => DetailScreen(post),
                           ),
                         );
+                        // O usuário pode ter salvo/removido na tela de detalhes.
+                        _carregarSalvo();
                       },
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            "Ler mais",
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            'Ler mais',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                           SizedBox(width: 6),
-                          Icon(Icons.north_east, size: 16),
+                          Icon(Icons.north_east, size: 14),
                         ],
                       ),
                     ),
@@ -190,21 +270,16 @@ class PostCard extends StatelessWidget {
             ),
           ),
 
+          // Faixa de status: reta, cortada pelo arredondamento do card.
           FutureBuilder<DetalhesProposicao>(
-            future: Post.buscarDetalhes(post.id),
+            future: _detalhes,
             builder: (context, snapshot) {
               final cor = corDaSituacao(snapshot.data?.codSituacao);
 
-              return ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(18),
-                ),
-                child: SizedBox(
-                  height: 6,
-                  width: double.infinity,
-                  child: ColoredBox(color: cor),
-                ),
+              return SizedBox(
+                height: 5,
+                width: double.infinity,
+                child: ColoredBox(color: cor),
               );
             },
           ),
@@ -225,8 +300,8 @@ class _HashtagText extends StatelessWidget {
       '#$label',
       style: const TextStyle(
         fontWeight: FontWeight.w600,
-        fontSize: 13,
-        color: _kGreen,
+        fontSize: 12,
+        color: _kHashtag,
       ),
     );
   }
@@ -238,8 +313,8 @@ class _AvatarStack extends StatelessWidget {
 
   const _AvatarStack({required this.autores, required this.extras});
 
-  static const _avatarSize = 34.0;
-  static const _overlap = 22.0;
+  static const _avatarSize = 32.0;
+  static const _overlap = 20.0;
 
   @override
   Widget build(BuildContext context) {
@@ -281,21 +356,14 @@ class _AvatarStack extends StatelessWidget {
                 width: _avatarSize,
                 height: _avatarSize,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _kGreen,
-                  border: Border.fromBorderSide(
+                  color: Colors.grey.shade400,
+                  border: const Border.fromBorderSide(
                     BorderSide(color: Colors.white, width: 2),
                   ),
                 ),
-                child: Text(
-                  '+$extras',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: const Icon(Icons.add, size: 16, color: Colors.white),
               ),
             ),
         ],
