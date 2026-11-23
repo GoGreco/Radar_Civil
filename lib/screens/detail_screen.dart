@@ -10,10 +10,19 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 const _kGreen = Color(0xFF4F8F63);
 const _kYellow = Color(0xFFE3C34B);
 
-class DetailScreen extends StatelessWidget {
+class DetailScreen extends StatefulWidget {
   final Post post;
 
   const DetailScreen(this.post, {super.key});
+
+  @override
+  State<DetailScreen> createState() => _DetailScreenState();
+}
+
+class _DetailScreenState extends State<DetailScreen> {
+  Post get post => widget.post;
+
+  late final Future<List<PdfParagrafo>> _futureTexto = _buscarTextoPdf();
 
   /// Busca o urlInteiroTeor via API e abre no navegador padrão do sistema.
   Future<void> _abrirOriginal() async {
@@ -39,25 +48,20 @@ class DetailScreen extends StatelessWidget {
     }
   }
 
-  /// Busca a URL do PDF e extrai o texto de dentro dele.
-  Future<String> _buscarTextoPdf() async {
+  /// Busca a URL do PDF e extrai o texto com formatação.
+  Future<List<PdfParagrafo>> _buscarTextoPdf() async {
     final pdfUrl = await Post.buscarUrlInteiroTeor(post.id);
 
-    if (pdfUrl == null || pdfUrl.isEmpty) {
-      return 'Texto original não disponível.';
-    }
+    if (pdfUrl == null || pdfUrl.isEmpty) return [];
 
     final response = await http.get(Uri.parse(pdfUrl));
     if (response.statusCode != 200) {
       throw Exception('Failed to download PDF: ${response.statusCode}');
     }
 
-    final bytes = response.bodyBytes;
-    final PdfDocument document = PdfDocument(inputBytes: bytes);
-
+    final document = PdfDocument(inputBytes: response.bodyBytes);
     try {
-      final text = PdfTextExtractor(document).extractText();
-      return text;
+      return extrairParagrafos(document);
     } finally {
       document.dispose();
     }
@@ -187,11 +191,10 @@ class DetailScreen extends StatelessWidget {
                   const SizedBox(height: 18),
 
                   // Texto extraído do PDF
-                  FutureBuilder<String>(
-                    future: _buscarTextoPdf(),
+                  FutureBuilder<List<PdfParagrafo>>(
+                    future: _futureTexto,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
                           child: Center(child: CircularProgressIndicator()),
@@ -208,13 +211,29 @@ class DetailScreen extends StatelessWidget {
                         );
                       }
 
-                      return Text(
-                        snapshot.data ?? '',
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 1.6,
-                          color: Colors.grey.shade700,
-                        ),
+                      final paragrafos = snapshot.data ?? [];
+                      if (paragrafos.isEmpty) {
+                        return const Text('Texto original não disponível.');
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final p in paragrafos)
+                            Padding(
+                              padding: EdgeInsets.only(
+                                left: p.indent,
+                                top: p.spaceBefore,
+                              ),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: Text.rich(
+                                  TextSpan(children: p.spans),
+                                  textAlign: p.align,
+                                ),
+                              ),
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -238,9 +257,7 @@ class DetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          post.date.isEmpty
-                              ? "Data não informada"
-                              : post.date,
+                          post.date.isEmpty ? "Data não informada" : post.date,
                           style: const TextStyle(
                             fontStyle: FontStyle.italic,
                             fontWeight: FontWeight.w600,
@@ -305,6 +322,126 @@ class DetailScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Extração de PDF com formatação ────────────────────────────────────────
+
+class PdfParagrafo {
+  final List<TextSpan> spans;
+  final TextAlign align;
+  final double indent;
+  final double spaceBefore;
+
+  PdfParagrafo(this.spans, this.align, this.indent, this.spaceBefore);
+}
+
+List<PdfParagrafo> extrairParagrafos(PdfDocument document) {
+  final extractor = PdfTextExtractor(document);
+  final porPagina = <List<TextLine>>[];
+  final larguras = <double>[];
+  final freq = <double, int>{};
+  double minLeft = double.infinity;
+
+  for (var i = 0; i < document.pages.count; i++) {
+    final linhas =
+        extractor.extractTextLines(startPageIndex: i, endPageIndex: i);
+    porPagina.add(linhas);
+    larguras.add(document.pages[i].size.width);
+
+    for (final l in linhas) {
+      if (l.text.trim().isEmpty) continue;
+      final s = double.parse(l.fontSize.toStringAsFixed(1));
+      freq[s] = (freq[s] ?? 0) + l.text.length;
+      if (l.bounds.left < minLeft) minLeft = l.bounds.left;
+    }
+  }
+
+  // Tamanho de fonte mais comum = corpo do texto
+  final base = freq.isEmpty
+      ? 12.0
+      : freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+
+  const corpo = 15.0; // tamanho exibido para o texto base
+  final resultado = <PdfParagrafo>[];
+
+  var spans = <TextSpan>[];
+  var align = TextAlign.left;
+  var indent = 0.0;
+  var antes = 0.0;
+  double? ultimoBottom;
+  double ultimoSize = base;
+  double ultimoLeft = minLeft;
+
+  void fechar() {
+    if (spans.isNotEmpty) {
+      resultado.add(PdfParagrafo(spans, align, indent, antes));
+    }
+    spans = <TextSpan>[];
+  }
+
+  for (var p = 0; p < porPagina.length; p++) {
+    final larguraPagina = larguras[p];
+    ultimoBottom = null; // nova página não força novo parágrafo
+
+    for (final linha in porPagina[p]) {
+      if (linha.text.trim().isEmpty) continue;
+
+      final size = linha.fontSize;
+      final gap = ultimoBottom == null ? 0.0 : linha.bounds.top - ultimoBottom;
+
+      final mudouTamanho = (size - ultimoSize).abs() > 1;
+      final espacoGrande = gap > size * 0.5;
+      final recuoNovo = linha.bounds.left - ultimoLeft > 10;
+
+      if (spans.isNotEmpty && (mudouTamanho || espacoGrande || recuoNovo)) {
+        fechar();
+      }
+
+      if (spans.isEmpty) {
+        // Propriedades do parágrafo definidas pela primeira linha
+        final centroLinha = linha.bounds.left + linha.bounds.width / 2;
+        final centralizado =
+            (centroLinha - larguraPagina / 2).abs() < 10 &&
+                linha.bounds.left - minLeft > 20;
+        align = centralizado ? TextAlign.center : TextAlign.left;
+        indent = centralizado
+            ? 0
+            : ((linha.bounds.left - minLeft) * 0.5).clamp(0.0, 60.0);
+        antes = resultado.isEmpty ? 0 : (gap > 0 ? 12 : 8);
+      }
+
+      for (final palavra in linha.wordCollection) {
+        spans.add(TextSpan(
+          text: '${palavra.text} ',
+          style: _estilo(palavra, base, corpo),
+        ));
+      }
+
+      ultimoBottom = linha.bounds.bottom;
+      ultimoSize = size;
+      ultimoLeft = linha.bounds.left;
+    }
+  }
+  fechar();
+  return resultado;
+}
+
+TextStyle _estilo(TextWord w, double base, double corpo) {
+  final nome = w.fontName.toLowerCase();
+  final negrito =
+      w.fontStyle.contains(PdfFontStyle.bold) || nome.contains('bold');
+  final italico =
+      w.fontStyle.contains(PdfFontStyle.italic) || nome.contains('italic');
+  final sublinhado = w.fontStyle.contains(PdfFontStyle.underline);
+
+  return TextStyle(
+    fontSize: (w.fontSize / base * corpo).clamp(11.0, 26.0),
+    fontWeight: negrito ? FontWeight.bold : FontWeight.normal,
+    fontStyle: italico ? FontStyle.italic : FontStyle.normal,
+    decoration: sublinhado ? TextDecoration.underline : TextDecoration.none,
+    height: 1.5,
+    color: Colors.grey.shade800,
+  );
 }
 
 // ── Widgets auxiliares ────────────────────────────────────────────────────
