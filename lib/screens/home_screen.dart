@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../models/materia_senado.dart';
 import '../models/post.dart';
 import '../services/camara_service.dart';
+import '../services/senado_service.dart';
 import '../widgets/post_card.dart';
+import '../widgets/senado_card.dart';
 import '../widgets/app_drawer.dart';
 import 'filter_screen.dart';
 import 'saved_screen.dart';
@@ -27,7 +30,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const _itensPorPagina = 20;
 
+  /// Janela máxima de histórico buscada no feed do Senado, em dias.
+  static const _senadoLimiteDias = 365 * 2;
+  static const _senadoDiasPorPagina = 30;
+
   final CamaraService _camaraService = CamaraService();
+  final SenadoService _senadoService = SenadoService();
   final ScrollController _scroll = ScrollController();
 
   _Casa _casaAtual = _Casa.camara;
@@ -39,6 +47,19 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _temMais = true;
   bool _erro = false;
   bool _erroAoCarregarMais = false;
+
+  bool _senadoIniciado = false;
+  List<MateriaSenado> _materiasSenado = [];
+  int _senadoDias = _senadoDiasPorPagina;
+  bool _carregandoSenadoInicial = false;
+  bool _carregandoSenadoMais = false;
+  bool _temMaisSenado = true;
+  bool _erroSenado = false;
+  bool _erroSenadoAoCarregarMais = false;
+
+  /// Incrementa a cada novo carregamento do feed do Senado, para descartar
+  /// respostas atrasadas.
+  int _geracaoSenado = 0;
 
   /// Incrementa a cada mudança de filtro para descartar respostas atrasadas.
   int _geracao = 0;
@@ -77,9 +98,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _aoRolar() {
-    if (_casaAtual != _Casa.camara || !_scroll.hasClients) return;
+    if (!_scroll.hasClients) return;
     if (_scroll.position.extentAfter < 400) {
-      _carregarMais();
+      if (_casaAtual == _Casa.camara) {
+        _carregarMais();
+      } else {
+        _carregarMaisSenado();
+      }
     }
   }
 
@@ -171,6 +196,86 @@ class _HomeScreenState extends State<HomeScreen> {
   void _selecionarCasa(_Casa casa) {
     if (casa == _casaAtual) return;
     setState(() => _casaAtual = casa);
+
+    if (casa == _Casa.senado && !_senadoIniciado) {
+      _senadoIniciado = true;
+      _carregarSenadoInicial();
+    }
+  }
+
+  // ── Dados (Senado) ───────────────────────────────────────────────────────
+
+  Future<void> _carregarSenadoInicial() async {
+    final geracao = ++_geracaoSenado;
+
+    setState(() {
+      _carregandoSenadoInicial = true;
+      _erroSenado = false;
+      _erroSenadoAoCarregarMais = false;
+      _senadoDias = _senadoDiasPorPagina;
+    });
+
+    try {
+      final materias = await _senadoService.getMaterias(
+        inicio: DateTime.now().subtract(Duration(days: _senadoDias)),
+        fim: DateTime.now(),
+      );
+
+      if (!mounted || geracao != _geracaoSenado) return;
+      setState(() {
+        _materiasSenado = materias;
+        _temMaisSenado = _senadoDias < _senadoLimiteDias;
+        _carregandoSenadoInicial = false;
+      });
+    } catch (_) {
+      if (!mounted || geracao != _geracaoSenado) return;
+      setState(() {
+        _erroSenado = true;
+        _carregandoSenadoInicial = false;
+      });
+    }
+  }
+
+  Future<void> _carregarMaisSenado() async {
+    if (_carregandoSenadoInicial ||
+        _carregandoSenadoMais ||
+        !_temMaisSenado ||
+        _erroSenado ||
+        _erroSenadoAoCarregarMais) {
+      return;
+    }
+
+    final geracao = _geracaoSenado;
+    final novosDias = _senadoDias + _senadoDiasPorPagina;
+
+    setState(() => _carregandoSenadoMais = true);
+
+    try {
+      final materias = await _senadoService.getMaterias(
+        inicio: DateTime.now().subtract(Duration(days: novosDias)),
+        fim: DateTime.now(),
+      );
+
+      if (!mounted || geracao != _geracaoSenado) return;
+      setState(() {
+        final trouxeMaisMaterias = materias.length > _materiasSenado.length;
+        _materiasSenado = materias;
+        _senadoDias = novosDias;
+        _temMaisSenado = trouxeMaisMaterias && novosDias < _senadoLimiteDias;
+        _carregandoSenadoMais = false;
+      });
+    } catch (_) {
+      if (!mounted || geracao != _geracaoSenado) return;
+      setState(() {
+        _carregandoSenadoMais = false;
+        _erroSenadoAoCarregarMais = true;
+      });
+    }
+  }
+
+  void _tentarCarregarMaisSenadoDeNovo() {
+    setState(() => _erroSenadoAoCarregarMais = false);
+    _carregarMaisSenado();
   }
 
   // ── Filtros ──────────────────────────────────────────────────────────────
@@ -354,13 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               Expanded(
-                child: noSenado
-                    ? const _MensagemCentral(
-                        icone: Icons.account_balance_outlined,
-                        texto: 'As proposições do Senado Federal\n'
-                            'estarão disponíveis em breve.',
-                      )
-                    : _buildCorpo(),
+                child: noSenado ? _buildCorpoSenado() : _buildCorpo(),
               ),
             ],
           ),
@@ -447,6 +546,82 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'Não há mais proposições',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox(height: 24);
+  }
+
+  Widget _buildCorpoSenado() {
+    if (_carregandoSenadoInicial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_erroSenado && _materiasSenado.isEmpty) {
+      return _MensagemCentral(
+        icone: Icons.cloud_off,
+        texto: 'Erro ao carregar matérias do Senado.',
+        acao: 'Tentar novamente',
+        onAcao: _carregarSenadoInicial,
+      );
+    }
+
+    if (_materiasSenado.isEmpty) {
+      return const _MensagemCentral(
+        icone: Icons.search_off,
+        texto: 'Nenhuma matéria do Senado encontrada.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _carregarSenadoInicial,
+      child: ListView.builder(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 6, bottom: 88),
+        itemCount: _materiasSenado.length + 1,
+        itemBuilder: (context, index) {
+          if (index < _materiasSenado.length) {
+            final materia = _materiasSenado[index];
+            return SenadoCard(materia, key: ValueKey(materia.id));
+          }
+          return _buildRodapeSenado();
+        },
+      ),
+    );
+  }
+
+  Widget _buildRodapeSenado() {
+    if (_carregandoSenadoMais) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_erroSenadoAoCarregarMais) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: TextButton.icon(
+            onPressed: _tentarCarregarMaisSenadoDeNovo,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Erro ao carregar mais. Tentar novamente'),
+            style: TextButton.styleFrom(foregroundColor: _kGreen),
+          ),
+        ),
+      );
+    }
+
+    if (!_temMaisSenado) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            'Não há mais matérias',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
           ),
         ),
