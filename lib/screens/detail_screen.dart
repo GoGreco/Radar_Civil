@@ -75,10 +75,22 @@ class _DetailScreenState extends State<DetailScreen> {
         automaticallyImplyLeading: false,
         backgroundColor: _kGreen,
         centerTitle: true,
+        leadingWidth: 96,
         leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openEndDrawer(),
+          builder: (context) => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Voltar',
+                onPressed: () => Navigator.pop(context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Menu',
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+              ),
+            ],
           ),
         ),
         title: const Text(
