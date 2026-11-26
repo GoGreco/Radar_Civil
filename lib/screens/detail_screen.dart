@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/post.dart';
 import '../services/saved_posts_service.dart';
@@ -9,6 +10,9 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 const _kGreen = Color(0xFF4F8F63);
 const _kYellow = Color(0xFFE3C34B);
+
+const _kFonteTexto = 14.0; // tamanho único do texto do PDF
+const _kAlturaLinha = 1.25; // espaçamento entre linhas
 
 class DetailScreen extends StatefulWidget {
   final Post post;
@@ -368,12 +372,12 @@ List<PdfParagrafo> extrairParagrafos(PdfDocument document) {
     }
   }
 
-  // Tamanho de fonte mais comum = corpo do texto
+  // Tamanho de fonte mais comum = corpo do texto (usado só para detectar
+  // mudanças de tamanho entre parágrafos)
   final base = freq.isEmpty
       ? 12.0
       : freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
 
-  const corpo = 15.0; // tamanho exibido para o texto base
   final resultado = <PdfParagrafo>[];
 
   var spans = <TextSpan>[];
@@ -419,13 +423,13 @@ List<PdfParagrafo> extrairParagrafos(PdfDocument document) {
         indent = centralizado
             ? 0
             : ((linha.bounds.left - minLeft) * 0.5).clamp(0.0, 60.0);
-        antes = resultado.isEmpty ? 0 : (gap > 0 ? 12 : 8);
+        antes = resultado.isEmpty ? 0 : (gap > 0 ? 8 : 4);
       }
 
       for (final palavra in linha.wordCollection) {
         spans.add(TextSpan(
           text: '${palavra.text} ',
-          style: _estilo(palavra, base, corpo),
+          style: _estilo(palavra),
         ));
       }
 
@@ -438,7 +442,7 @@ List<PdfParagrafo> extrairParagrafos(PdfDocument document) {
   return resultado;
 }
 
-TextStyle _estilo(TextWord w, double base, double corpo) {
+TextStyle _estilo(TextWord w) {
   final nome = w.fontName.toLowerCase();
   final negrito =
       w.fontStyle.contains(PdfFontStyle.bold) || nome.contains('bold');
@@ -446,12 +450,12 @@ TextStyle _estilo(TextWord w, double base, double corpo) {
       w.fontStyle.contains(PdfFontStyle.italic) || nome.contains('italic');
   final sublinhado = w.fontStyle.contains(PdfFontStyle.underline);
 
-  return TextStyle(
-    fontSize: (w.fontSize / base * corpo).clamp(11.0, 26.0),
+  return GoogleFonts.montserrat(
+    fontSize: _kFonteTexto,
     fontWeight: negrito ? FontWeight.bold : FontWeight.normal,
     fontStyle: italico ? FontStyle.italic : FontStyle.normal,
     decoration: sublinhado ? TextDecoration.underline : TextDecoration.none,
-    height: 1.5,
+    height: _kAlturaLinha,
     color: Colors.grey.shade800,
   );
 }
